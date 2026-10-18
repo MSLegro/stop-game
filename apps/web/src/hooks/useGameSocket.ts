@@ -18,8 +18,11 @@ export function useGameSocket() {
       return;
     }
 
-    const host = window.location.hostname || 'localhost';
-    const wsUrl = import.meta.env?.VITE_WS_URL || `ws://${host}:3001/ws`;
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const defaultWsUrl = window.location.port === '3000'
+      ? `ws://${window.location.hostname}:3001/ws`
+      : `${protocol}//${window.location.host}/ws`;
+    const wsUrl = import.meta.env?.VITE_WS_URL || defaultWsUrl;
 
     try {
       const ws = new WebSocket(wsUrl);

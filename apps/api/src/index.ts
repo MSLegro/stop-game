@@ -5,6 +5,14 @@ import { RoomManager } from './game/room-manager.js';
 import { isWordInDictionary } from './db/index.js';
 import type { WsMessage } from '@stop/shared';
 
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
+import fastifyStatic from '@fastify/static';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const fastify = Fastify({
   logger: {
     transport: {
@@ -30,45 +38,70 @@ await fastify.register(fastifyWebsocket, {
   },
 });
 
-// REST Health and info endpoints
-fastify.get('/', async (request, reply) => {
-  const hostName = request.hostname.split(':')[0];
-  const isBrowser = request.headers.accept?.includes('text/html');
-  if (isBrowser) {
-    reply.type('text/html').send(`
-      <!DOCTYPE html>
-      <html lang="es">
-        <head>
-          <meta charset="utf-8" />
-          <title>Stop! Servidor API</title>
-          <style>
-            body { font-family: system-ui, sans-serif; background: #f6f3eb; color: #18181b; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
-            .card { background: #fffdf9; border: 3px solid #18181b; border-radius: 24px; box-shadow: 5px 5px 0 #18181b; max-width: 480px; padding: 32px; text-align: center; }
-            h1 { font-size: 2rem; margin-top: 0; }
-            p { color: #3f3f46; font-size: 1.1rem; }
-            .btn { display: inline-block; background: #ef4444; color: white; padding: 14px 28px; border-radius: 16px; font-weight: bold; font-size: 1.2rem; text-decoration: none; border: 3px solid #18181b; box-shadow: 4px 4px 0 #18181b; margin-top: 20px; transition: transform 0.1s; }
-            .btn:hover { transform: scale(1.03); }
-          </style>
-        </head>
-        <body>
-          <div class="card">
-            <h1>✏️ ¡Stop! Backend Activo</h1>
-            <p>Estás en el servidor API (puerto <strong>3001</strong>).</p>
-            <p>Para ingresar al juego con tus amigos, abre la aplicación en el puerto <strong>3000</strong>:</p>
-            <a class="btn" href="http://${hostName}:3000">👉 Ir al Juego (http://${hostName}:3000)</a>
-          </div>
-        </body>
-      </html>
-    `);
-    return;
-  }
-  return {
-    name: 'Stop! Game API',
-    status: 'online',
-    frontendUrl: `http://${hostName}:3000`,
-    websocketUrl: `ws://${hostName}:3001/ws`,
-  };
-});
+// Check if web build exists to serve full-stack monolith in production (Render, etc.)
+const candidatePaths = [
+  path.resolve(process.cwd(), 'apps/web/dist'),
+  path.resolve(__dirname, '../../../apps/web/dist'),
+  path.resolve(__dirname, '../../web/dist'),
+];
+
+const webDistPath = candidatePaths.find((p) => fs.existsSync(p));
+
+if (webDistPath) {
+  console.log(`📦 [API] Sirviendo cliente web estático desde: ${webDistPath}`);
+  await fastify.register(fastifyStatic, {
+    root: webDistPath,
+    prefix: '/',
+  });
+
+  fastify.setNotFoundHandler((request, reply) => {
+    if (request.raw.url && (request.raw.url.startsWith('/api') || request.raw.url.startsWith('/ws'))) {
+      reply.status(404).send({ error: 'Endpoint no encontrado' });
+      return;
+    }
+    return reply.sendFile('index.html');
+  });
+} else {
+  // REST fallback endpoint when running in decoupled API-only mode
+  fastify.get('/', async (request, reply) => {
+    const hostName = request.hostname.split(':')[0];
+    const isBrowser = request.headers.accept?.includes('text/html');
+    if (isBrowser) {
+      reply.type('text/html').send(`
+        <!DOCTYPE html>
+        <html lang="es">
+          <head>
+            <meta charset="utf-8" />
+            <title>Stop! Servidor API</title>
+            <style>
+              body { font-family: system-ui, sans-serif; background: #f6f3eb; color: #18181b; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+              .card { background: #fffdf9; border: 3px solid #18181b; border-radius: 24px; box-shadow: 5px 5px 0 #18181b; max-width: 480px; padding: 32px; text-align: center; }
+              h1 { font-size: 2rem; margin-top: 0; }
+              p { color: #3f3f46; font-size: 1.1rem; }
+              .btn { display: inline-block; background: #ef4444; color: white; padding: 14px 28px; border-radius: 16px; font-weight: bold; font-size: 1.2rem; text-decoration: none; border: 3px solid #18181b; box-shadow: 4px 4px 0 #18181b; margin-top: 20px; transition: transform 0.1s; }
+              .btn:hover { transform: scale(1.03); }
+            </style>
+          </head>
+          <body>
+            <div class="card">
+              <h1>✏️ ¡Stop! Backend Activo</h1>
+              <p>Estás en el servidor API (puerto <strong>3001</strong>).</p>
+              <p>Para ingresar al juego con tus amigos, abre la aplicación en el puerto <strong>3000</strong>:</p>
+              <a class="btn" href="http://${hostName}:3000">👉 Ir al Juego (http://${hostName}:3000)</a>
+            </div>
+          </body>
+        </html>
+      `);
+      return;
+    }
+    return {
+      name: 'Stop! Game API',
+      status: 'online',
+      frontendUrl: `http://${hostName}:3000`,
+      websocketUrl: `ws://${hostName}:3001/ws`,
+    };
+  });
+}
 
 fastify.get('/favicon.ico', async (request, reply) => {
   reply.code(204).send();

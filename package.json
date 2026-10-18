@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
+    "start": "pnpm --filter @stop/api start",
     "lint": "turbo run lint",
     "test": "pnpm --filter @stop/api exec tsx ../../scripts/smoke-test.ts",
     "db:push": "pnpm --filter @stop/api db:push",
