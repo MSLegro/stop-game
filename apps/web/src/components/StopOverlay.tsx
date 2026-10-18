@@ -21,7 +21,6 @@ export const StopOverlay: React.FC<StopOverlayProps> = ({ stoppedBy, onDismiss }
     <AnimatePresence>
       <div
         className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink-900/60 backdrop-blur-sm select-none"
-        onClick={() => onDismiss?.()}
       >
         <motion.div
           initial={{ scale: 0.2, rotate: -20, opacity: 0 }}

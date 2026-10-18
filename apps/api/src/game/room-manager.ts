@@ -247,6 +247,8 @@ export class RoomManager {
   public submitAnswers(ws: WebSocket, answers: Record<string, string>): void {
     const client = this.getClientBySocket(ws);
     if (!client) return;
+    const room = this.rooms.get(client.roomCode);
+    if (!room || room.status !== 'PLAYING') return;
 
     const roomAnswers = this.currentRoundAnswers.get(client.roomCode);
     if (roomAnswers) {
@@ -259,6 +261,7 @@ export class RoomManager {
     if (!client) return;
     const room = this.rooms.get(client.roomCode);
     if (!room || room.status !== 'PLAYING') return;
+    if (room.currentRound?.stoppedBy) return; // Ya se hizo STOP en esta ronda
 
     const stoppingPlayer = room.players.find((p) => p.id === client.playerId);
     this.triggerStop(room.code, stoppingPlayer ? { id: stoppingPlayer.id, name: stoppingPlayer.name } : undefined, false);
@@ -271,6 +274,8 @@ export class RoomManager {
   ): Promise<void> {
     const room = this.rooms.get(roomCode);
     if (!room || room.status !== 'PLAYING') return;
+    // Guard against multiple STOP calls in the same round
+    if (room.currentRound?.stoppedBy) return;
 
     // Cancel timer
     if (this.roundTimers.has(roomCode)) {
@@ -279,8 +284,11 @@ export class RoomManager {
     }
 
     if (room.currentRound) {
-      room.currentRound.stoppedBy = stoppedBy || (isAutoTimeout ? { id: 'SYSTEM', name: '⏰ ¡Tiempo Agotado!' } : undefined);
+      room.currentRound.stoppedBy = stoppedBy || (isAutoTimeout ? { id: 'SYSTEM', name: '⏰ ¡Tiempo Agotado!' } : { id: 'SYSTEM', name: 'Alguien' });
     }
+
+    // Broadcast room state immediately so room.currentRound.stoppedBy is synced across all clients
+    this.broadcastRoomState(room.code);
 
     // Notify clients of STOP trigger immediately for visual freeze & sound
     this.broadcastToRoom(roomCode, 'round:stop_triggered', {

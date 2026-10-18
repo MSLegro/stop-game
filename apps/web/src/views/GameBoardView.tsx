@@ -10,6 +10,7 @@ interface GameBoardViewProps {
   currentPlayerId: string;
   onSubmitAnswers: (answers: Record<string, string>) => void;
   onTriggerStop: () => void;
+  isStopped?: boolean;
 }
 
 export const GameBoardView: React.FC<GameBoardViewProps> = ({
@@ -17,6 +18,7 @@ export const GameBoardView: React.FC<GameBoardViewProps> = ({
   currentPlayerId,
   onSubmitAnswers,
   onTriggerStop,
+  isStopped = false,
 }) => {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [timeLeft, setTimeLeft] = useState<number>(roomState.settings.roundDurationSeconds);
@@ -24,10 +26,17 @@ export const GameBoardView: React.FC<GameBoardViewProps> = ({
   const lastTickTime = useRef<number>(0);
 
   const round = roomState.currentRound;
+  const isRoundStopped = Boolean(isStopped || round?.stoppedBy || hasTriggeredStop);
   const letter = round?.letter || 'A';
   const me = roomState.players.find((p) => p.id === currentPlayerId);
   const modifier = me?.currentModifier;
   const allowsAnyLetter = modifier?.id === 'LETTER_SWAP';
+
+  // Reset local state when a new round begins
+  useEffect(() => {
+    setHasTriggeredStop(false);
+    setAnswers({});
+  }, [round?.roundNumber]);
 
   // Synchronized countdown timer using absolute server timestamp `endsAt`
   useEffect(() => {
@@ -50,15 +59,16 @@ export const GameBoardView: React.FC<GameBoardViewProps> = ({
     return () => clearInterval(interval);
   }, [round]);
 
-  // Sync answers with server as player types
+  // Sync answers with server as player types (only if round is active)
   const handleAnswerChange = (categoryId: string, val: string) => {
+    if (isRoundStopped) return;
     const updated = { ...answers, [categoryId]: val };
     setAnswers(updated);
     onSubmitAnswers(updated);
   };
 
   const handleStopClick = () => {
-    if (hasTriggeredStop) return;
+    if (isRoundStopped) return;
     setHasTriggeredStop(true);
     soundManager.playStop();
     onSubmitAnswers(answers);
@@ -144,6 +154,22 @@ export const GameBoardView: React.FC<GameBoardViewProps> = ({
           NO BORRAR
         </div>
 
+        {/* Banner de STOP activo */}
+        {isRoundStopped && (
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="mb-6 p-3 rounded-2xl bg-red-100 border-3 border-ink-900 shadow-sketch-sm flex items-center justify-center gap-3 text-red-900 font-hand text-lg font-bold text-center"
+          >
+            <span className="text-2xl animate-bounce">🛑</span>
+            <span>
+              {round?.stoppedBy
+                ? `¡${round.stoppedBy.name} gritó STOP! Lápices arriba, congelando respuestas...`
+                : '¡STOP Activado! Lápices arriba, congelando respuestas...'}
+            </span>
+          </motion.div>
+        )}
+
         <div className="space-y-5">
           {activeCategories.map((cat, idx) => {
             const rawVal = answers[cat.id] || '';
@@ -171,9 +197,14 @@ export const GameBoardView: React.FC<GameBoardViewProps> = ({
                   <input
                     type="text"
                     value={rawVal}
-                    placeholder={cat.placeholder}
+                    disabled={isRoundStopped}
+                    placeholder={isRoundStopped ? 'Tiempo terminado' : cat.placeholder}
                     onChange={(e) => handleAnswerChange(cat.id, e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl border-2 border-ink-900 bg-white/80 font-hand text-2xl text-blue-900 font-bold shadow-sketch-sm focus:outline-none focus:ring-4 focus:ring-yellow-300 transition-all placeholder:text-ink-500/50"
+                    className={`w-full px-4 py-2.5 rounded-xl border-2 border-ink-900 font-hand text-2xl font-bold shadow-sketch-sm transition-all ${
+                      isRoundStopped
+                        ? 'bg-gray-100/90 text-gray-500 cursor-not-allowed select-none opacity-80'
+                        : 'bg-white/80 text-blue-900 focus:outline-none focus:ring-4 focus:ring-yellow-300 placeholder:text-ink-500/50'
+                    }`}
                   />
 
                   {/* Indicador Visual de Validación Local */}
@@ -202,22 +233,26 @@ export const GameBoardView: React.FC<GameBoardViewProps> = ({
           <motion.button
             type="button"
             onClick={handleStopClick}
-            disabled={hasTriggeredStop}
-            whileHover={{ scale: 1.08, rotate: -2 }}
-            whileTap={{ scale: 0.92 }}
-            className={`w-44 h-44 sm:w-52 sm:h-52 rounded-full border-4 border-ink-900 font-hand text-4xl sm:text-5xl font-black text-white flex flex-col items-center justify-center gap-1 shadow-sketch-xl cursor-pointer transition-all ${
-              hasTriggeredStop
-                ? 'bg-gray-400 opacity-60 cursor-not-allowed'
-                : 'bg-red-500 hover:bg-red-600 animate-juicy-pulse'
+            disabled={isRoundStopped}
+            whileHover={isRoundStopped ? {} : { scale: 1.08, rotate: -2 }}
+            whileTap={isRoundStopped ? {} : { scale: 0.92 }}
+            className={`w-44 h-44 sm:w-52 sm:h-52 rounded-full border-4 border-ink-900 font-hand text-4xl sm:text-5xl font-black text-white flex flex-col items-center justify-center gap-1 shadow-sketch-xl transition-all ${
+              isRoundStopped
+                ? 'bg-gray-400 opacity-60 cursor-not-allowed select-none'
+                : 'bg-red-500 hover:bg-red-600 animate-juicy-pulse cursor-pointer'
             }`}
           >
             <span className="tracking-widest">¡STOP!</span>
-            <span className="text-sm sm:text-base font-hand font-medium text-red-100 uppercase tracking-normal">
-              {hasTriggeredStop ? 'Detenido...' : '¡Basta para todos!'}
+            <span className="text-sm sm:text-base font-hand font-medium text-red-100 uppercase tracking-normal text-center px-4">
+              {isRoundStopped
+                ? (round?.stoppedBy ? `¡${round.stoppedBy.name} hizo Stop!` : '¡Detenido!')
+                : '¡Basta para todos!'}
             </span>
           </motion.button>
           <span className="font-hand text-ink-500 text-sm mt-3">
-            Presiónalo en cuanto completes tus palabras para congelar a los demás.
+            {isRoundStopped
+              ? 'La ronda ha finalizado. Evaluando respuestas...'
+              : 'Presiónalo en cuanto completes tus palabras para congelar a los demás.'}
           </span>
         </div>
       </motion.div>

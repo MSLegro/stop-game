@@ -55,8 +55,9 @@ export function useGameSocket() {
                 setCurrentPlayerId(data.payload.hostId);
                 isCreatingHostRef.current = false;
               }
-              // Clear freeze overlay if we transitioned out of PLAYING (or into new round)
-              if (data.payload.status !== 'PLAYING') {
+              if (data.payload?.currentRound?.stoppedBy) {
+                setStoppedByPlayer(data.payload.currentRound.stoppedBy);
+              } else if (data.payload.status !== 'PLAYING') {
                 setTimeout(() => {
                   setStoppedByPlayer(null);
                 }, 1500);
@@ -73,10 +74,6 @@ export function useGameSocket() {
             case 'round:stop_triggered':
               setStoppedByPlayer(data.payload.stoppedBy);
               soundManager.playStop();
-              // Safety timer: auto dismiss freeze screen after 2.8 seconds
-              setTimeout(() => {
-                setStoppedByPlayer(null);
-              }, 2800);
               break;
 
             case 'sound:play':

@@ -124,6 +124,7 @@ export const App: React.FC = () => {
             currentPlayerId={currentPlayerId}
             onSubmitAnswers={submitAnswers}
             onTriggerStop={triggerStop}
+            isStopped={Boolean(stoppedByPlayer || roomState.currentRound?.stoppedBy)}
           />
         ) : roomState.status === 'VOTING' ? (
           <VotingView
