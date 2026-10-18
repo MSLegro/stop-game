@@ -129,7 +129,8 @@ export class RoomManager {
   }
 
   public joinRoom(ws: WebSocket, code: string, playerName: string, avatarId: string): RoomState | null {
-    const room = this.rooms.get(code.toUpperCase());
+    if (!code) return null;
+    const room = this.rooms.get(code.trim().toUpperCase());
     if (!room) return null;
 
     // Check if player is reconnecting with same name

@@ -163,9 +163,14 @@ export const LobbyView: React.FC<LobbyViewProps> = ({ onCreateRoom, onJoinRoom }
                 maxLength={4}
                 placeholder="ej. KZ79"
                 value={roomCode}
-                onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
+                onChange={(e) => setRoomCode(e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 4).toUpperCase())}
                 className="w-full px-4 py-3 rounded-2xl border-3 border-ink-900 bg-white font-hand text-2xl tracking-widest text-center uppercase text-red-600 font-extrabold shadow-sketch-sm focus:outline-none focus:ring-4 focus:ring-yellow-300 transition-all placeholder:text-ink-500 placeholder:tracking-normal"
               />
+              {tab === 'join' && !name.trim() && (
+                <span className="block font-hand text-sm text-red-600 font-bold mt-1 text-center">
+                  👆 Recuerda escribir tu apodo en el paso 2 arriba
+                </span>
+              )}
             </motion.div>
           )}
 

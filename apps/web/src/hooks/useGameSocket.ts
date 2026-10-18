@@ -12,6 +12,7 @@ export function useGameSocket() {
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isCreatingHostRef = useRef<boolean>(false);
+  const pendingQueueRef = useRef<string[]>([]);
 
   const connect = useCallback(() => {
     if (socketRef.current && (socketRef.current.readyState === WebSocket.OPEN || socketRef.current.readyState === WebSocket.CONNECTING)) {
@@ -31,6 +32,11 @@ export function useGameSocket() {
       ws.onopen = () => {
         setIsConnected(true);
         setErrorMessage(null);
+        // Flush any pending events sent before connection was open
+        while (pendingQueueRef.current.length > 0) {
+          const queued = pendingQueueRef.current.shift();
+          if (queued) ws.send(queued);
+        }
       };
 
       ws.onmessage = (event) => {
@@ -116,8 +122,11 @@ export function useGameSocket() {
   }, [connect]);
 
   const sendEvent = useCallback((event: string, payload: unknown = {}) => {
+    const msg = JSON.stringify({ event, payload });
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-      socketRef.current.send(JSON.stringify({ event, payload }));
+      socketRef.current.send(msg);
+    } else {
+      pendingQueueRef.current.push(msg);
     }
   }, []);
 
