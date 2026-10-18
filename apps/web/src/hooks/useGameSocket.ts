@@ -55,12 +55,9 @@ export function useGameSocket() {
                 setCurrentPlayerId(data.payload.hostId);
                 isCreatingHostRef.current = false;
               }
-              if (data.payload?.currentRound?.stoppedBy) {
+              // Solo mostrar STOP si la sala sigue en PLAYING
+              if (data.payload?.status === 'PLAYING' && data.payload?.currentRound?.stoppedBy) {
                 setStoppedByPlayer(data.payload.currentRound.stoppedBy);
-              } else if (data.payload.status !== 'PLAYING') {
-                setTimeout(() => {
-                  setStoppedByPlayer(null);
-                }, 1500);
               } else {
                 setStoppedByPlayer(null);
               }

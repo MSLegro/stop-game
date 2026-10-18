@@ -104,8 +104,10 @@ export const App: React.FC = () => {
         </div>
       )}
 
-      {/* Freeze Overlay en caso de STOP */}
-      <StopOverlay stoppedBy={stoppedByPlayer} onDismiss={dismissStop} />
+      {/* Freeze Overlay en caso de STOP (únicamente durante la partida activa) */}
+      {roomState?.status === 'PLAYING' && (
+        <StopOverlay stoppedBy={stoppedByPlayer} onDismiss={dismissStop} />
+      )}
 
       {/* Contenido Principal según el Estado de la Sala */}
       <main className="flex-1 flex flex-col justify-center">
