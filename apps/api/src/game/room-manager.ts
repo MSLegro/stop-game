@@ -263,19 +263,19 @@ export class RoomManager {
     if (!room || room.status !== 'PLAYING') return;
     if (room.currentRound?.stoppedBy) return; // Ya se hizo STOP en esta ronda
 
-    // Verificar que el jugador tenga respuestas en todas las categorías
+    // Verificar que el jugador tenga al menos 1 campo con palabras
     const roomAnswers = this.currentRoundAnswers.get(client.roomCode);
     const playerAnswers = roomAnswers?.get(client.playerId) || {};
     const categories = room.settings.categories;
 
-    const hasAllFields = categories.length > 0 && categories.every((cat) => {
+    const hasAnyField = categories.some((cat) => {
       const val = playerAnswers[cat];
       return typeof val === 'string' && val.trim().length > 0;
     });
 
-    if (!hasAllFields) {
+    if (!hasAnyField) {
       this.sendToSocket(ws, 'room:error', {
-        message: '¡Debes llenar todas las casillas antes de poder decir STOP!',
+        message: '¡Debes escribir al menos una palabra antes de decir STOP!',
       });
       this.sendToSocket(ws, 'sound:play', { sound: 'buzzer' });
       return;

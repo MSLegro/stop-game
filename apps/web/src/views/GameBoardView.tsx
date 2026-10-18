@@ -73,11 +73,11 @@ export const GameBoardView: React.FC<GameBoardViewProps> = ({
 
   const filledCount = activeCategories.filter((c) => (answers[c.id] || '').trim().length > 0).length;
   const totalCount = activeCategories.length;
-  const hasAllFieldsFilled = totalCount > 0 && filledCount === totalCount;
+  const hasAnyAnswer = filledCount > 0;
 
   const handleStopClick = () => {
     if (isRoundStopped) return;
-    if (!hasAllFieldsFilled) {
+    if (!hasAnyAnswer) {
       soundManager.playBuzzer();
       return;
     }
@@ -244,16 +244,16 @@ export const GameBoardView: React.FC<GameBoardViewProps> = ({
               initial={{ opacity: 0, y: 5 }}
               animate={{ opacity: 1, y: 0 }}
               className={`flex items-center gap-2 font-hand text-sm sm:text-base font-bold px-4 py-1.5 rounded-full border-2 border-ink-900 shadow-sketch-sm mb-4 transition-all ${
-                hasAllFieldsFilled
+                hasAnyAnswer
                   ? 'bg-green-100 text-green-900 border-green-900'
                   : 'bg-yellow-100 text-ink-900'
               }`}
             >
-              <span>{hasAllFieldsFilled ? '✅' : '✏️'}</span>
+              <span>{hasAnyAnswer ? '✏️' : '⚠️'}</span>
               <span>
-                {hasAllFieldsFilled
-                  ? '¡Todas las casillas llenas!'
-                  : `Casillas completadas: ${filledCount} de ${totalCount}`}
+                {hasAnyAnswer
+                  ? `Casillas con palabras: ${filledCount} de ${totalCount}`
+                  : 'Escribe en al menos 1 campo para poder hacer STOP'}
               </span>
             </motion.div>
           )}
@@ -261,14 +261,14 @@ export const GameBoardView: React.FC<GameBoardViewProps> = ({
           <motion.button
             type="button"
             onClick={handleStopClick}
-            disabled={isRoundStopped || !hasAllFieldsFilled}
-            whileHover={isRoundStopped || !hasAllFieldsFilled ? {} : { scale: 1.08, rotate: -2 }}
-            whileTap={isRoundStopped || !hasAllFieldsFilled ? {} : { scale: 0.92 }}
+            disabled={isRoundStopped || !hasAnyAnswer}
+            whileHover={isRoundStopped || !hasAnyAnswer ? {} : { scale: 1.08, rotate: -2 }}
+            whileTap={isRoundStopped || !hasAnyAnswer ? {} : { scale: 0.92 }}
             className={`w-44 h-44 sm:w-52 sm:h-52 rounded-full border-4 border-ink-900 font-hand text-4xl sm:text-5xl font-black flex flex-col items-center justify-center gap-1 transition-all ${
               isRoundStopped
                 ? 'bg-gray-400 text-white opacity-60 cursor-not-allowed select-none shadow-sketch-sm'
-                : !hasAllFieldsFilled
-                ? 'bg-amber-100/90 text-ink-900 border-dashed opacity-80 cursor-not-allowed shadow-sketch-sm'
+                : !hasAnyAnswer
+                ? 'bg-amber-100/90 text-ink-900 border-dashed opacity-75 cursor-not-allowed shadow-sketch-sm'
                 : 'bg-red-500 hover:bg-red-600 animate-juicy-pulse text-white cursor-pointer shadow-sketch-xl'
             }`}
           >
@@ -276,17 +276,17 @@ export const GameBoardView: React.FC<GameBoardViewProps> = ({
             <span className="text-xs sm:text-sm font-hand font-bold uppercase tracking-normal text-center px-4 leading-tight">
               {isRoundStopped
                 ? (round?.stoppedBy ? `¡${round.stoppedBy.name} hizo Stop!` : '¡Detenido!')
-                : !hasAllFieldsFilled
-                ? `Faltan ${totalCount - filledCount} por llenar`
-                : '¡LISTO! ¡Basta para todos!'}
+                : !hasAnyAnswer
+                ? 'Escribe al menos 1 palabra'
+                : '¡Basta para todos!'}
             </span>
           </motion.button>
           <span className="font-hand text-ink-600 font-medium text-sm mt-3 text-center max-w-sm">
             {isRoundStopped
               ? 'La ronda ha finalizado. Evaluando respuestas...'
-              : !hasAllFieldsFilled
-              ? `Debes llenar todas las casillas (${filledCount}/${totalCount}) antes de poder cantar STOP.`
-              : '¡Completaste tu hoja! Presiona el botón para congelar a los demás.'}
+              : !hasAnyAnswer
+              ? 'El botón se habilitará en cuanto escribas al menos una palabra.'
+              : 'Presiónalo para detener la ronda y congelar a los demás jugadores.'}
           </span>
         </div>
       </motion.div>

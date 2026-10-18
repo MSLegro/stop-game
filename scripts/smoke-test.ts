@@ -65,27 +65,19 @@ async function runSmokeTest() {
   if (room.status !== 'PLAYING' || !room.currentRound) throw new Error('Fallo al iniciar partida');
   console.log(`   ✓ Ronda iniciada: Letra [${room.currentRound.letter}], Ronda #${room.currentRound.roundNumber}`);
 
-  // Submit Partial Answers & test that STOP is blocked when incomplete
-  const letter = room.currentRound.letter;
-  manager.submitAnswers(fakeSocketHost, {
-    nombre: `${letter}lberto`,
-    animal: `${letter}beja`,
-  });
+  // 1. Submit empty answers & test that STOP is blocked when player has no letters
+  manager.submitAnswers(fakeSocketHost, {});
 
   manager.triggerStopFromPlayer(fakeSocketHost);
   if (room.currentRound.stoppedBy) {
-    throw new Error('STOP no debió permitirse con casillas incompletas');
+    throw new Error('STOP no debió permitirse sin haber escrito palabras');
   }
-  console.log('   ✓ Intento de ¡STOP! con campos incompletos bloqueado correctamente');
+  console.log('   ✓ Intento de ¡STOP! sin letras bloqueado correctamente');
 
-  // Complete all categories for Host
+  // 2. Submit at least 1 word for Host and other player
+  const letter = room.currentRound.letter;
   manager.submitAnswers(fakeSocketHost, {
     nombre: `${letter}lberto`,
-    cosa: `${letter}nillo`,
-    animal: `${letter}beja`,
-    lugar: `${letter}rgentina`,
-    comida: `${letter}rroz`,
-    color_profesion: `${letter}zul`,
   });
 
   manager.submitAnswers(fakeSocketPlayer, {
@@ -93,12 +85,12 @@ async function runSmokeTest() {
     animal: `${letter}péndiceRaro`, // Unknown word, triggers vote!
   });
 
-  // Now trigger STOP from Host with all fields completed
+  // Now trigger STOP from Host with at least 1 word
   manager.triggerStopFromPlayer(fakeSocketHost);
   if (!room.currentRound.stoppedBy) {
-    throw new Error('Fallo al activar STOP con todas las casillas llenas');
+    throw new Error('Fallo al activar STOP con al menos una palabra escrita');
   }
-  console.log('   ✓ ¡STOP! activado con todas las casillas completas simulado con éxito');
+  console.log('   ✓ ¡STOP! activado con al menos una palabra simulado con éxito');
 
   console.log('\n🎉 ¡TODAS LAS PRUEBAS DEL MOTOR DE JUEGO PASARON EXITOSAMENTE!');
 }
