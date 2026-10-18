@@ -1,0 +1,103 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background-color: #f6f3eb;
+    background-image: 
+      radial-gradient(#d4cebe 1px, transparent 1px),
+      radial-gradient(#d4cebe 1px, #f6f3eb 1px);
+    background-size: 24px 24px;
+    background-position: 0 0, 12px 12px;
+  }
+}
+
+/* Cuaderno escolar con cuadrícula y margen rojo */
+.notebook-sheet {
+  background-color: #fffdf9;
+  background-image: 
+    linear-gradient(to right, rgba(239, 68, 68, 0.4) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(147, 197, 253, 0.3) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 32px;
+  background-position: 48px 0, 0 24px;
+  box-shadow: 
+    0 1px 3px rgba(0, 0, 0, 0.05),
+    4px 6px 0px #18181b;
+}
+
+/* Washi tape decorativa (cinta adhesiva con textura) */
+.washi-tape {
+  background-color: rgba(254, 240, 138, 0.85);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  clip-path: polygon(
+    0% 0%, 
+    100% 0%, 
+    97% 50%, 
+    100% 100%, 
+    0% 100%, 
+    3% 50%
+  );
+}
+
+.washi-tape-pink {
+  background-color: rgba(244, 114, 182, 0.85);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  clip-path: polygon(
+    0% 0%, 
+    100% 0%, 
+    97% 50%, 
+    100% 100%, 
+    0% 100%, 
+    3% 50%
+  );
+}
+
+/* Bordes orgánicos estilo boceto Excalidraw */
+.border-sketch {
+  border: 3px solid #18181b;
+  border-radius: 255px 15px 225px 15px/15px 225px 15px 255px;
+}
+
+.border-sketch-sm {
+  border: 2px solid #18181b;
+  border-radius: 125px 10px 110px 10px/10px 110px 10px 125px;
+}
+
+/* Sello de goma para letras y stamps */
+.rubber-stamp {
+  font-family: 'Patrick Hand', cursive;
+  text-transform: uppercase;
+  border: 4px dashed #ef4444;
+  color: #ef4444;
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  transform: rotate(-4deg);
+  mask-image: radial-gradient(circle, black 70%, rgba(0,0,0,0.6) 100%);
+}
+
+.rubber-stamp-green {
+  font-family: 'Patrick Hand', cursive;
+  text-transform: uppercase;
+  border: 4px dashed #16a34a;
+  color: #16a34a;
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  transform: rotate(3deg);
+}
+
+/* Animación sutil de respiración para el botón STOP */
+@keyframes juicy-pulse {
+  0%, 100% {
+    transform: scale(1) rotate(0deg);
+  }
+  50% {
+    transform: scale(1.04) rotate(-1deg);
+  }
+}
+
+.animate-juicy-pulse {
+  animation: juicy-pulse 2s infinite ease-in-out;
+}

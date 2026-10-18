@@ -1,22 +1,19 @@
 {
-  "name": "stop-game",
+  "name": "stop-game-monorepo",
   "version": "1.0.0",
-  "main": "index.js",
-  "type": "module",
+  "private": true,
+  "description": "PWA multiplayer Stop / Tutti Frutti game in Playful Indie style",
   "scripts": {
-    "dev": "node --watch src/index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [],
-  "author": "Manuel Legro",
-  "license": "ISC",
-  "description": "Is a video-Game for play with my friends",
-  "dependencies": {
-    "cors": "^2.8.5",
-    "express": "^4.19.2",
-    "socket.io": "^4.7.5"
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "test": "pnpm --filter @stop/api exec tsx ../../scripts/smoke-test.ts",
+    "db:push": "pnpm --filter @stop/api db:push",
+    "db:seed": "pnpm --filter @stop/api db:seed"
   },
   "devDependencies": {
-    "@types/express": "^4.17.21"
-  }
+    "turbo": "^2.4.4",
+    "typescript": "^5.8.2"
+  },
+  "packageManager": "pnpm@11.5.0"
 }
