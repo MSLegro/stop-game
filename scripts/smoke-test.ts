@@ -65,20 +65,40 @@ async function runSmokeTest() {
   if (room.status !== 'PLAYING' || !room.currentRound) throw new Error('Fallo al iniciar partida');
   console.log(`   ✓ Ronda iniciada: Letra [${room.currentRound.letter}], Ronda #${room.currentRound.roundNumber}`);
 
-  // Submit Answers
+  // Submit Partial Answers & test that STOP is blocked when incomplete
   const letter = room.currentRound.letter;
   manager.submitAnswers(fakeSocketHost, {
     nombre: `${letter}lberto`,
     animal: `${letter}beja`,
   });
+
+  manager.triggerStopFromPlayer(fakeSocketHost);
+  if (room.currentRound.stoppedBy) {
+    throw new Error('STOP no debió permitirse con casillas incompletas');
+  }
+  console.log('   ✓ Intento de ¡STOP! con campos incompletos bloqueado correctamente');
+
+  // Complete all categories for Host
+  manager.submitAnswers(fakeSocketHost, {
+    nombre: `${letter}lberto`,
+    cosa: `${letter}nillo`,
+    animal: `${letter}beja`,
+    lugar: `${letter}rgentina`,
+    comida: `${letter}rroz`,
+    color_profesion: `${letter}zul`,
+  });
+
   manager.submitAnswers(fakeSocketPlayer, {
     nombre: `${letter}lberto`, // Duplicate
     animal: `${letter}péndiceRaro`, // Unknown word, triggers vote!
   });
 
-  // Trigger STOP
-  await manager.triggerStop(room.code, { id: room.hostId, name: 'Profe Manuel' }, false);
-  console.log('   ✓ ¡STOP! activado y congelado simulado con éxito');
+  // Now trigger STOP from Host with all fields completed
+  manager.triggerStopFromPlayer(fakeSocketHost);
+  if (!room.currentRound.stoppedBy) {
+    throw new Error('Fallo al activar STOP con todas las casillas llenas');
+  }
+  console.log('   ✓ ¡STOP! activado con todas las casillas completas simulado con éxito');
 
   console.log('\n🎉 ¡TODAS LAS PRUEBAS DEL MOTOR DE JUEGO PASARON EXITOSAMENTE!');
 }

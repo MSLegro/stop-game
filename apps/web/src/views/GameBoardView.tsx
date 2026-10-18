@@ -67,17 +67,25 @@ export const GameBoardView: React.FC<GameBoardViewProps> = ({
     onSubmitAnswers(updated);
   };
 
+  const activeCategories = DEFAULT_CATEGORIES.filter((c) =>
+    roomState.settings.categories.includes(c.id)
+  );
+
+  const filledCount = activeCategories.filter((c) => (answers[c.id] || '').trim().length > 0).length;
+  const totalCount = activeCategories.length;
+  const hasAllFieldsFilled = totalCount > 0 && filledCount === totalCount;
+
   const handleStopClick = () => {
     if (isRoundStopped) return;
+    if (!hasAllFieldsFilled) {
+      soundManager.playBuzzer();
+      return;
+    }
     setHasTriggeredStop(true);
     soundManager.playStop();
     onSubmitAnswers(answers);
     onTriggerStop();
   };
-
-  const activeCategories = DEFAULT_CATEGORIES.filter((c) =>
-    roomState.settings.categories.includes(c.id)
-  );
 
   return (
     <div className="w-full max-w-4xl mx-auto space-y-6 pb-20">
@@ -230,29 +238,55 @@ export const GameBoardView: React.FC<GameBoardViewProps> = ({
 
         {/* Botón Gigante de ¡STOP! */}
         <div className="mt-10 pt-6 flex flex-col items-center justify-center">
+          {/* Contador / Indicador de casillas completadas */}
+          {!isRoundStopped && (
+            <motion.div
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              className={`flex items-center gap-2 font-hand text-sm sm:text-base font-bold px-4 py-1.5 rounded-full border-2 border-ink-900 shadow-sketch-sm mb-4 transition-all ${
+                hasAllFieldsFilled
+                  ? 'bg-green-100 text-green-900 border-green-900'
+                  : 'bg-yellow-100 text-ink-900'
+              }`}
+            >
+              <span>{hasAllFieldsFilled ? '✅' : '✏️'}</span>
+              <span>
+                {hasAllFieldsFilled
+                  ? '¡Todas las casillas llenas!'
+                  : `Casillas completadas: ${filledCount} de ${totalCount}`}
+              </span>
+            </motion.div>
+          )}
+
           <motion.button
             type="button"
             onClick={handleStopClick}
-            disabled={isRoundStopped}
-            whileHover={isRoundStopped ? {} : { scale: 1.08, rotate: -2 }}
-            whileTap={isRoundStopped ? {} : { scale: 0.92 }}
-            className={`w-44 h-44 sm:w-52 sm:h-52 rounded-full border-4 border-ink-900 font-hand text-4xl sm:text-5xl font-black text-white flex flex-col items-center justify-center gap-1 shadow-sketch-xl transition-all ${
+            disabled={isRoundStopped || !hasAllFieldsFilled}
+            whileHover={isRoundStopped || !hasAllFieldsFilled ? {} : { scale: 1.08, rotate: -2 }}
+            whileTap={isRoundStopped || !hasAllFieldsFilled ? {} : { scale: 0.92 }}
+            className={`w-44 h-44 sm:w-52 sm:h-52 rounded-full border-4 border-ink-900 font-hand text-4xl sm:text-5xl font-black flex flex-col items-center justify-center gap-1 transition-all ${
               isRoundStopped
-                ? 'bg-gray-400 opacity-60 cursor-not-allowed select-none'
-                : 'bg-red-500 hover:bg-red-600 animate-juicy-pulse cursor-pointer'
+                ? 'bg-gray-400 text-white opacity-60 cursor-not-allowed select-none shadow-sketch-sm'
+                : !hasAllFieldsFilled
+                ? 'bg-amber-100/90 text-ink-900 border-dashed opacity-80 cursor-not-allowed shadow-sketch-sm'
+                : 'bg-red-500 hover:bg-red-600 animate-juicy-pulse text-white cursor-pointer shadow-sketch-xl'
             }`}
           >
             <span className="tracking-widest">¡STOP!</span>
-            <span className="text-sm sm:text-base font-hand font-medium text-red-100 uppercase tracking-normal text-center px-4">
+            <span className="text-xs sm:text-sm font-hand font-bold uppercase tracking-normal text-center px-4 leading-tight">
               {isRoundStopped
                 ? (round?.stoppedBy ? `¡${round.stoppedBy.name} hizo Stop!` : '¡Detenido!')
-                : '¡Basta para todos!'}
+                : !hasAllFieldsFilled
+                ? `Faltan ${totalCount - filledCount} por llenar`
+                : '¡LISTO! ¡Basta para todos!'}
             </span>
           </motion.button>
-          <span className="font-hand text-ink-500 text-sm mt-3">
+          <span className="font-hand text-ink-600 font-medium text-sm mt-3 text-center max-w-sm">
             {isRoundStopped
               ? 'La ronda ha finalizado. Evaluando respuestas...'
-              : 'Presiónalo en cuanto completes tus palabras para congelar a los demás.'}
+              : !hasAllFieldsFilled
+              ? `Debes llenar todas las casillas (${filledCount}/${totalCount}) antes de poder cantar STOP.`
+              : '¡Completaste tu hoja! Presiona el botón para congelar a los demás.'}
           </span>
         </div>
       </motion.div>

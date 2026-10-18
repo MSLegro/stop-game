@@ -263,6 +263,24 @@ export class RoomManager {
     if (!room || room.status !== 'PLAYING') return;
     if (room.currentRound?.stoppedBy) return; // Ya se hizo STOP en esta ronda
 
+    // Verificar que el jugador tenga respuestas en todas las categorías
+    const roomAnswers = this.currentRoundAnswers.get(client.roomCode);
+    const playerAnswers = roomAnswers?.get(client.playerId) || {};
+    const categories = room.settings.categories;
+
+    const hasAllFields = categories.length > 0 && categories.every((cat) => {
+      const val = playerAnswers[cat];
+      return typeof val === 'string' && val.trim().length > 0;
+    });
+
+    if (!hasAllFields) {
+      this.sendToSocket(ws, 'room:error', {
+        message: '¡Debes llenar todas las casillas antes de poder decir STOP!',
+      });
+      this.sendToSocket(ws, 'sound:play', { sound: 'buzzer' });
+      return;
+    }
+
     const stoppingPlayer = room.players.find((p) => p.id === client.playerId);
     this.triggerStop(room.code, stoppingPlayer ? { id: stoppingPlayer.id, name: stoppingPlayer.name } : undefined, false);
   }
@@ -695,6 +713,12 @@ export class RoomManager {
       if (client.roomCode === roomCode && client.ws.readyState === client.ws.OPEN) {
         client.ws.send(payload);
       }
+    }
+  }
+
+  public sendToSocket(ws: WebSocket, event: string, payloadData: unknown): void {
+    if (ws.readyState === ws.OPEN) {
+      ws.send(JSON.stringify({ event, payload: payloadData }));
     }
   }
 
