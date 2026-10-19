@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { AnimatePresence } from 'framer-motion';
 import { useGameSocket } from './hooks/useGameSocket.js';
 import { LobbyView } from './views/LobbyView.js';
 import { WaitingRoomView } from './views/WaitingRoomView.js';
@@ -7,8 +8,10 @@ import { VotingView } from './views/VotingView.js';
 import { RecapView } from './views/RecapView.js';
 import { GameOverView } from './views/GameOverView.js';
 import { StopOverlay } from './components/StopOverlay.js';
+import { InstructionsModal } from './components/InstructionsModal.js';
+import { ConfirmLeaveModal } from './components/ConfirmLeaveModal.js';
 import { soundManager, isSoundEnabled, setSoundEnabled } from './utils/audio.js';
-import { Volume2, VolumeX, AlertCircle, Wifi, WifiOff } from 'lucide-react';
+import { Volume2, VolumeX, AlertCircle, Wifi, WifiOff, BookOpen, Home } from 'lucide-react';
 
 export const App: React.FC = () => {
   const {
@@ -21,6 +24,8 @@ export const App: React.FC = () => {
     clearError,
     createRoom,
     joinRoom,
+    leaveRoom,
+    kickPlayer,
     updateSettings,
     startGame,
     submitAnswers,
@@ -32,6 +37,8 @@ export const App: React.FC = () => {
   } = useGameSocket();
 
   const [soundOn, setSoundOn] = useState(isSoundEnabled());
+  const [showInstructions, setShowInstructions] = useState(false);
+  const [showConfirmLeave, setShowConfirmLeave] = useState(false);
 
   const toggleSound = () => {
     const next = !soundOn;
@@ -61,29 +68,74 @@ export const App: React.FC = () => {
           </span>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Botón de Instrucciones */}
+          <button
+            type="button"
+            onClick={() => {
+              soundManager.playPop();
+              setShowInstructions(true);
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border-2 border-ink-900 shadow-sketch-sm hover:bg-yellow-100 transition-all text-ink-900 font-hand text-sm font-bold cursor-pointer"
+            title="Ver instrucciones y reglas del juego"
+          >
+            <BookOpen size={16} />
+            <span className="hidden sm:inline">Reglas</span>
+          </button>
+
+          {/* Botón de Salir a Home (solo si está en una sala) */}
+          {roomState && (
+            <button
+              type="button"
+              onClick={() => {
+                soundManager.playPop();
+                setShowConfirmLeave(true);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border-2 border-ink-900 shadow-sketch-sm hover:bg-red-50 transition-all text-red-700 font-hand text-sm font-bold cursor-pointer"
+              title="Salir al lobby principal"
+            >
+              <Home size={16} />
+              <span className="hidden sm:inline">Salir</span>
+            </button>
+          )}
+
           {/* Indicador de conexión */}
           <div
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-xl border-2 border-ink-900 font-hand text-xs font-bold ${
+            className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-xl border-2 border-ink-900 font-hand text-xs font-bold ${
               isConnected ? 'bg-green-100 text-green-900' : 'bg-red-100 text-red-900'
             }`}
             title={isConnected ? 'Conectado al servidor' : 'Reconectando...'}
           >
             {isConnected ? <Wifi size={14} /> : <WifiOff size={14} />}
-            <span>{isConnected ? 'EN LÍNEA' : 'DESCONECTADO'}</span>
+            <span className="hidden xs:inline">{isConnected ? 'EN LÍNEA' : 'DESCONECTADO'}</span>
           </div>
 
           {/* Toggle de Audio */}
           <button
             type="button"
             onClick={toggleSound}
-            className="p-2 rounded-xl bg-white border-2 border-ink-900 shadow-sketch-sm hover:bg-yellow-100 transition-all text-ink-900"
+            className="p-2 rounded-xl bg-white border-2 border-ink-900 shadow-sketch-sm hover:bg-yellow-100 transition-all text-ink-900 cursor-pointer"
             title={soundOn ? 'Silenciar sonidos' : 'Activar sonidos'}
           >
             {soundOn ? <Volume2 size={20} /> : <VolumeX size={20} />}
           </button>
         </div>
       </header>
+
+      {/* Modales de Instrucciones y Salida */}
+      <InstructionsModal
+        isOpen={showInstructions}
+        onClose={() => setShowInstructions(false)}
+      />
+
+      <ConfirmLeaveModal
+        isOpen={showConfirmLeave}
+        onConfirm={() => {
+          setShowConfirmLeave(false);
+          leaveRoom();
+        }}
+        onCancel={() => setShowConfirmLeave(false)}
+      />
 
       {/* Notificación de Error */}
       {errorMessage && (
@@ -105,9 +157,15 @@ export const App: React.FC = () => {
       )}
 
       {/* Freeze Overlay en caso de STOP (únicamente durante la partida activa) */}
-      {roomState?.status === 'PLAYING' && (
-        <StopOverlay stoppedBy={stoppedByPlayer} onDismiss={dismissStop} />
-      )}
+      <AnimatePresence>
+        {roomState?.status === 'PLAYING' && stoppedByPlayer && (
+          <StopOverlay
+            stoppedBy={stoppedByPlayer}
+            avatarId={roomState.players.find((p) => p.id === stoppedByPlayer.id)?.avatarId}
+            onDismiss={dismissStop}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Contenido Principal según el Estado de la Sala */}
       <main className="flex-1 flex flex-col justify-center">
@@ -119,6 +177,7 @@ export const App: React.FC = () => {
             currentPlayerId={currentPlayerId}
             onUpdateSettings={updateSettings}
             onStartGame={startGame}
+            onKickPlayer={kickPlayer}
           />
         ) : roomState.status === 'PLAYING' ? (
           <GameBoardView

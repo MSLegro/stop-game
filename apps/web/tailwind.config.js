@@ -42,6 +42,9 @@ export default {
         'sketch': '255px 15px 225px 15px/15px 225px 15px 255px',
         'sketch-card': '20px 255px 20px 25px/255px 20px 255px 20px',
         'sketch-sm': '15px 125px 15px 15px/125px 15px 125px 15px',
+      },
+      borderWidth: {
+        3: '3px',
       }
     },
   },

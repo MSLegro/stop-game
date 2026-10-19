@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import type { RoomState } from '@stop/shared';
-import { DEFAULT_CATEGORIES } from '@stop/shared';
+import { DEFAULT_CATEGORIES, CHAOS_MODIFIERS } from '@stop/shared';
 import { DoodleAvatar } from '../components/DoodleAvatar.js';
 import { soundManager } from '../utils/audio.js';
 import { Trophy, Flame, ArrowRight, Zap, Award } from 'lucide-react';
@@ -121,7 +121,7 @@ export const RecapView: React.FC<RecapViewProps> = ({
       </div>
 
       {/* Tabla Cuaderno de Calificaciones por Jugador */}
-      <div className="notebook-sheet rounded-3xl p-6 sm:p-8 border-3 border-ink-900 space-y-6">
+      <div className="notebook-grid rounded-3xl p-6 sm:p-8 border-3 border-ink-900 space-y-6">
         <h3 className="font-hand text-3xl font-black text-ink-900 flex items-center gap-2">
           <span>📝 Puntuaciones de la Ronda</span>
         </h3>
@@ -145,8 +145,8 @@ export const RecapView: React.FC<RecapViewProps> = ({
                         {res.playerName} {isMe && '(Tú)'}
                       </span>
                       {res.modifierUsed && (
-                        <span className="block font-hand text-xs text-purple-700 font-semibold">
-                          ⚡ Comodín: {res.modifierUsed} (+{res.bonusPoints} pts extra)
+                        <span className="block font-hand text-xs text-purple-700 font-bold mt-0.5">
+                          {CHAOS_MODIFIERS[res.modifierUsed]?.icon || '⚡'} Comodín: {CHAOS_MODIFIERS[res.modifierUsed]?.title || res.modifierUsed} (+{res.bonusPoints} pts extra)
                         </span>
                       )}
                     </div>

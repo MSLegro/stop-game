@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import type { RoomState, RoomSettings } from '@stop/shared';
-import { DEFAULT_CATEGORIES } from '@stop/shared';
+import { DEFAULT_CATEGORIES, MAX_PLAYERS_PER_ROOM } from '@stop/shared';
 import { DoodleAvatar } from '../components/DoodleAvatar.js';
+import { NotebookAnimatedValue } from '../components/NotebookAnimatedValue.js';
 import { soundManager } from '../utils/audio.js';
-import { Crown, Copy, Check, Play, Settings, Clock, Zap, Layers } from 'lucide-react';
+import { Crown, Copy, Check, Play, Settings, Clock, Zap, Layers, UserX } from 'lucide-react';
 
 interface WaitingRoomViewProps {
   roomState: RoomState;
   currentPlayerId: string;
   onUpdateSettings: (settings: Partial<RoomSettings>) => void;
   onStartGame: () => void;
+  onKickPlayer?: (targetPlayerId: string) => void;
 }
 
 export const WaitingRoomView: React.FC<WaitingRoomViewProps> = ({
@@ -18,8 +20,10 @@ export const WaitingRoomView: React.FC<WaitingRoomViewProps> = ({
   currentPlayerId,
   onUpdateSettings,
   onStartGame,
+  onKickPlayer,
 }) => {
   const [copied, setCopied] = useState(false);
+  const [kickingPlayerId, setKickingPlayerId] = useState<string | null>(null);
   const isHost = roomState.hostId === currentPlayerId || (roomState.players.length === 1 && Boolean(roomState.players[0]?.isHost));
 
   const handleCopyCode = () => {
@@ -78,11 +82,11 @@ export const WaitingRoomView: React.FC<WaitingRoomViewProps> = ({
           </button>
         </motion.div>
 
-        {/* Indicador de Jugadores Conectados */}
+        {/* Indicador de Jugadores Conectados y Aforo */}
         <div className="font-hand text-xl bg-paper-100 border-2 border-ink-900 px-5 py-2.5 rounded-2xl shadow-sketch-sm flex items-center gap-2">
           <span className="w-3 h-3 rounded-full bg-green-500 animate-pulse"></span>
           <span>
-            {roomState.players.length} {roomState.players.length === 1 ? 'jugador en la sala' : 'jugadores en la sala'}
+            {roomState.players.length} / {MAX_PLAYERS_PER_ROOM} {roomState.players.length === 1 ? 'jugador' : 'jugadores'}
           </span>
         </div>
       </div>
@@ -95,37 +99,71 @@ export const WaitingRoomView: React.FC<WaitingRoomViewProps> = ({
           </h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {roomState.players.map((player) => {
-              const isCurrent = player.id === currentPlayerId;
-              return (
-                <motion.div
-                  key={player.id}
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  whileHover={{ scale: 1.02 }}
-                  className={`p-3.5 rounded-2xl border-2 border-ink-900 flex items-center gap-3 transition-all ${
-                    isCurrent ? 'bg-yellow-100/90 shadow-sketch-sm' : 'bg-white'
-                  }`}
-                >
-                  <DoodleAvatar avatarId={player.avatarId} size="md" />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-hand text-xl font-bold text-ink-900 truncate">
-                        {player.name}
-                      </span>
-                      {player.isHost && (
-                        <span title="Anfitrión" className="inline-flex">
-                          <Crown size={16} className="text-yellow-600 fill-yellow-400 shrink-0" />
+            <AnimatePresence>
+              {roomState.players.map((player) => {
+                const isCurrent = player.id === currentPlayerId;
+                const isKicking = kickingPlayerId === player.id;
+                return (
+                  <motion.div
+                    key={player.id}
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: isKicking ? 0.35 : 1, scale: isKicking ? 0.95 : 1 }}
+                    exit={{ opacity: 0, scale: 0.8, transition: { duration: 0.15 } }}
+                    whileHover={{ scale: isKicking ? 0.95 : 1.02 }}
+                    className={`p-3.5 rounded-2xl border-2 border-ink-900 flex items-center gap-3 transition-all ${
+                      isKicking
+                        ? 'bg-red-50 opacity-40 pointer-events-none'
+                        : !player.isOnline
+                        ? 'bg-gray-100/70 opacity-60 border-dashed'
+                        : isCurrent
+                        ? 'bg-yellow-100/90 shadow-sketch-sm'
+                        : 'bg-white'
+                    }`}
+                  >
+                    <DoodleAvatar avatarId={player.avatarId} size="md" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-hand text-xl font-bold text-ink-900 truncate">
+                          {player.name}
                         </span>
-                      )}
+                        {player.isHost && (
+                          <span title="Anfitrión" className="inline-flex">
+                            <Crown size={16} className="text-yellow-600 fill-yellow-400 shrink-0" />
+                          </span>
+                        )}
+                      </div>
+                      <span className="font-hand text-xs text-ink-500">
+                        {isKicking
+                          ? 'Expulsando...'
+                          : isCurrent
+                          ? '(Tú)'
+                          : player.isHost
+                          ? 'Anfitrión'
+                          : player.isOnline
+                          ? 'Listo'
+                          : 'Desconectado'}
+                      </span>
                     </div>
-                    <span className="font-hand text-xs text-ink-500">
-                      {isCurrent ? '(Tú)' : player.isHost ? 'Anfitrión' : 'Listo'}
-                    </span>
-                  </div>
-                </motion.div>
-              );
-            })}
+                    {isHost && !isCurrent && (
+                      <button
+                        type="button"
+                        disabled={isKicking}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          soundManager.playPop();
+                          setKickingPlayerId(player.id);
+                          onKickPlayer?.(player.id);
+                        }}
+                        className="p-1.5 rounded-xl bg-red-100 hover:bg-red-200 border-2 border-red-800 text-red-800 shadow-sketch-sm transition-all cursor-pointer ml-auto shrink-0 disabled:opacity-50"
+                        title={`Expulsar a ${player.name} de la sala`}
+                      >
+                        <UserX size={16} />
+                      </button>
+                    )}
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
           </div>
 
           {/* Botón de Inicio si es Host */}
@@ -154,7 +192,7 @@ export const WaitingRoomView: React.FC<WaitingRoomViewProps> = ({
         </div>
 
         {/* Columna Derecha: Configuración de la Partida */}
-        <div className="bg-white rounded-3xl p-6 border-3 border-ink-900 shadow-sketch space-y-5">
+        <div className="notebook-grid rounded-3xl p-6 border-3 border-ink-900 space-y-5">
           <h2 className="font-hand text-2xl font-bold text-ink-900 flex items-center gap-2">
             <Settings size={22} />
             <span>Reglas de Partida</span>
@@ -162,66 +200,86 @@ export const WaitingRoomView: React.FC<WaitingRoomViewProps> = ({
 
           {/* Tiempo por Ronda */}
           <div>
-            <label className="block font-hand font-semibold text-ink-900 text-base mb-1.5 flex items-center gap-1.5">
-              <Clock size={16} />
-              <span>Tiempo por ronda: {roomState.settings.roundDurationSeconds} seg</span>
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="font-hand font-semibold text-ink-900 text-base flex items-center gap-1.5">
+                <Clock size={16} />
+                <span>Tiempo por ronda:</span>
+              </label>
+              <NotebookAnimatedValue
+                value={roomState.settings.roundDurationSeconds}
+                suffix="seg"
+                className="text-lg"
+              />
+            </div>
             {isHost ? (
               <div className="flex gap-2">
                 {[45, 60, 90].map((sec) => (
-                  <button
+                  <motion.button
                     key={sec}
                     type="button"
+                    whileHover={{ scale: 1.05, rotate: -1 }}
+                    whileTap={{ scale: 0.95 }}
                     onClick={() => {
                       soundManager.playPop();
                       onUpdateSettings({ roundDurationSeconds: sec });
                     }}
-                    className={`flex-1 py-1.5 rounded-xl font-hand font-bold text-sm border-2 border-ink-900 ${
+                    className={`flex-1 py-1.5 rounded-xl font-hand font-bold text-sm border-2 border-ink-900 transition-all ${
                       roomState.settings.roundDurationSeconds === sec
-                        ? 'bg-yellow-300 shadow-sketch-sm'
+                        ? 'bg-yellow-300 shadow-sketch-sm font-black'
                         : 'bg-paper-200 hover:bg-paper-300'
                     }`}
                   >
                     {sec}s
-                  </button>
+                  </motion.button>
                 ))}
               </div>
             ) : (
-              <div className="font-hand text-sm text-ink-700 bg-paper-100 p-2 rounded-xl border border-ink-900">
-                {roomState.settings.roundDurationSeconds} segundos
+              <div className="font-hand text-sm text-ink-700 bg-paper-100 p-2 rounded-xl border border-ink-900 flex justify-between items-center">
+                <span>Configurado por el anfitrión</span>
+                <span className="font-bold">{roomState.settings.roundDurationSeconds} seg</span>
               </div>
             )}
           </div>
 
           {/* Rondas Totales */}
           <div>
-            <label className="block font-hand font-semibold text-ink-900 text-base mb-1.5 flex items-center gap-1.5">
-              <Layers size={16} />
-              <span>Número de rondas: {roomState.settings.totalRounds}</span>
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="font-hand font-semibold text-ink-900 text-base flex items-center gap-1.5">
+                <Layers size={16} />
+                <span>Número de rondas:</span>
+              </label>
+              <NotebookAnimatedValue
+                value={roomState.settings.totalRounds}
+                suffix="rondas"
+                className="text-lg"
+              />
+            </div>
             {isHost ? (
               <div className="flex gap-2">
                 {[3, 5, 7].map((num) => (
-                  <button
+                  <motion.button
                     key={num}
                     type="button"
+                    whileHover={{ scale: 1.05, rotate: 1 }}
+                    whileTap={{ scale: 0.95 }}
                     onClick={() => {
                       soundManager.playPop();
                       onUpdateSettings({ totalRounds: num });
                     }}
-                    className={`flex-1 py-1.5 rounded-xl font-hand font-bold text-sm border-2 border-ink-900 ${
+                    className={`flex-1 py-1.5 rounded-xl font-hand font-bold text-sm border-2 border-ink-900 transition-all ${
                       roomState.settings.totalRounds === num
-                        ? 'bg-yellow-300 shadow-sketch-sm'
+                        ? 'bg-yellow-300 shadow-sketch-sm font-black'
                         : 'bg-paper-200 hover:bg-paper-300'
                     }`}
                   >
                     {num} Rondas
-                  </button>
+                  </motion.button>
                 ))}
               </div>
             ) : (
-              <div className="font-hand text-sm text-ink-700 bg-paper-100 p-2 rounded-xl border border-ink-900">
-                {roomState.settings.totalRounds} rondas
+              <div className="font-hand text-sm text-ink-700 bg-paper-100 p-2 rounded-xl border border-ink-900 flex justify-between items-center">
+                <span>Configurado por el anfitrión</span>
+                <span className="font-bold">{roomState.settings.totalRounds} rondas</span>
               </div>
             )}
           </div>

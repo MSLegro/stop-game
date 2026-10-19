@@ -3,7 +3,7 @@ import cors from '@fastify/cors';
 import fastifyWebsocket from '@fastify/websocket';
 import { RoomManager } from './game/room-manager.js';
 import { isWordInDictionary } from './db/index.js';
-import type { WsMessage } from '@stop/shared';
+import { type WsMessage, MAX_PLAYERS_PER_ROOM } from '@stop/shared';
 
 import path from 'path';
 import fs from 'fs';
@@ -147,20 +147,37 @@ fastify.register(async function (fastifyInstance) {
           }
 
           case 'room:join': {
-            const { code, name, avatarId } = msg.payload || {};
-            const room = roomManager.joinRoom(socket, code, name, avatarId);
-            if (!room) {
+            const { code, name, avatarId, playerId } = msg.payload || {};
+            const result = roomManager.joinRoom(socket, code, name, avatarId, playerId);
+            if (result.error) {
+              const message = result.error === 'ROOM_FULL'
+                ? `La sala está llena (máximo ${MAX_PLAYERS_PER_ROOM} jugadores).`
+                : `No se encontró la sala con código "${code}". Verifica el PIN.`;
               socket.send(JSON.stringify({
                 event: 'room:error',
-                payload: { message: `No se encontró la sala con código "${code}". Verifica el PIN.` },
+                payload: { message },
               }));
-            } else {
+            } else if (result.room) {
+              const room = result.room;
               const client = roomManager.getClientBySocket(socket);
               socket.send(JSON.stringify({
                 event: 'player:init',
                 payload: { playerId: client?.playerId, isHost: client?.playerId === room.hostId },
               }));
               socket.send(JSON.stringify({ event: 'room:state', payload: room }));
+            }
+            break;
+          }
+
+          case 'room:leave': {
+            roomManager.leaveRoom(socket);
+            break;
+          }
+
+          case 'room:kick_player': {
+            const { targetPlayerId } = msg.payload || {};
+            if (targetPlayerId) {
+              roomManager.kickPlayer(socket, targetPlayerId);
             }
             break;
           }

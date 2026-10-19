@@ -143,7 +143,7 @@ export const GameOverView: React.FC<GameOverViewProps> = ({
       </div>
 
       {/* Tabla Completa de Calificaciones */}
-      <div className="notebook-sheet rounded-3xl p-6 border-3 border-ink-900 max-w-lg mx-auto">
+      <div className="notebook-grid rounded-3xl p-6 border-3 border-ink-900 max-w-lg mx-auto">
         <h3 className="font-hand text-2xl font-black text-ink-900 mb-4">
           Tabla de Honor Completa
         </h3>

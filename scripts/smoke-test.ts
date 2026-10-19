@@ -53,15 +53,87 @@ async function runSmokeTest() {
   manager.registerSocket(fakeSocketHost);
   const room = manager.createRoom(fakeSocketHost, 'Profe Manuel', 'garabato-feliz');
   if (!room.code || room.code.length !== 4) throw new Error('Código PIN inválido');
-  console.log(`   ✓ Sala creada con PIN: ${room.code}`);
+  if (room.settings.chaosModifiersEnabled !== false) throw new Error('Modo Caos debe estar desactivado por defecto');
+  console.log(`   ✓ Sala creada con PIN: ${room.code} (Modo Caos: desactivado por defecto)`);
 
   manager.registerSocket(fakeSocketPlayer);
-  const joined = manager.joinRoom(fakeSocketPlayer, room.code, 'Amigo Juan', 'gato-bigotes');
-  if (!joined || joined.players.length !== 2) throw new Error('Fallo al unir jugador');
+  const joinRes = manager.joinRoom(fakeSocketPlayer, room.code, 'Amigo Juan', 'gato-bigotes');
+  if (!joinRes.room || joinRes.room.players.length !== 2) throw new Error('Fallo al unir jugador');
   console.log('   ✓ Segundo jugador unido correctamente');
 
+  // 5. Probando límite de capacidad máxima (8 jugadores)
+  console.log('5. Probando aforo máximo de 8 jugadores por sala...');
+  const extraSockets = [];
+  for (let i = 3; i <= 8; i++) {
+    const s = { readyState: 1, send: () => {}, on: () => {} } as any;
+    manager.registerSocket(s);
+    extraSockets.push(s);
+    const r = manager.joinRoom(s, room.code, `Jugador ${i}`, 'robot-carton');
+    if (!r.room || r.room.players.length !== i) throw new Error(`Fallo uniendo jugador ${i}`);
+  }
+  const overflowSocket = { readyState: 1, send: () => {}, on: () => {} } as any;
+  manager.registerSocket(overflowSocket);
+  const overflowRes = manager.joinRoom(overflowSocket, room.code, 'Jugador Extra', 'alien-divertido');
+  if (overflowRes.error !== 'ROOM_FULL') throw new Error('Se esperaba error ROOM_FULL al exceder 8 jugadores');
+  console.log('   ✓ Límite de 8 jugadores respetado correctamente (rechaza 9no jugador)');
+
+  // 6. Probando salida voluntaria y traspaso de anfitrión
+  console.log('6. Probando traspaso de anfitrión (Host Migration)...');
+  const originalHostId = room.hostId;
+  manager.leaveRoom(fakeSocketHost);
+  if (room.hostId === originalHostId) throw new Error('El anfitrión debió cambiar tras salir el creador');
+  const newHostPlayer = room.players.find((p) => p.id === room.hostId);
+  if (!newHostPlayer || !newHostPlayer.isHost) throw new Error('El nuevo anfitrión no tiene isHost en true');
+  console.log(`   ✓ Traspaso exitoso: Nuevo anfitrión es "${newHostPlayer.name}"`);
+
+  // Limpiar jugadores extra para continuar prueba de ronda con 2 jugadores
+  for (const s of extraSockets) {
+    manager.leaveRoom(s);
+  }
+
+  // Volver a unir al Profe Manuel para la prueba de juego
+  manager.registerSocket(fakeSocketHost);
+  manager.joinRoom(fakeSocketHost, room.code, 'Profe Manuel', 'garabato-feliz');
+
+  // 7. Probando expulsión de jugador por parte del anfitrión (Host kick)
+  console.log('7. Probando expulsión de jugador por el anfitrión...');
+  let kickedMessageReceived = false;
+  const kickTargetSocket = {
+    OPEN: 1,
+    readyState: 1,
+    send: (data: string) => {
+      const parsed = JSON.parse(data);
+      if (parsed.event === 'room:kicked') {
+        kickedMessageReceived = true;
+      }
+    },
+    on: () => {},
+  } as any;
+  manager.registerSocket(kickTargetSocket);
+  const joinKickTarget = manager.joinRoom(kickTargetSocket, room.code, 'Alumno Revoltoso', 'alien-divertido');
+  const targetPlayer = joinKickTarget.room?.players.find((p) => p.name === 'Alumno Revoltoso');
+  if (!targetPlayer) throw new Error('Fallo al unir Alumno Revoltoso');
+  const targetId = targetPlayer.id;
+
+  // Intento de auto-expulsión o no-anfitrión (debe ser ignorado)
+  manager.kickPlayer(kickTargetSocket, targetId);
+  if (kickedMessageReceived || !room.players.some((p) => p.id === targetId)) {
+    throw new Error('Un jugador que no es anfitrión no puede expulsar');
+  }
+
+  // Anfitrión legítimo (fakeSocketPlayer / Juan) expulsa al revoltoso
+  manager.kickPlayer(fakeSocketPlayer, targetId);
+  if (!kickedMessageReceived) {
+    throw new Error('El jugador expulsado debió recibir el evento room:kicked');
+  }
+  if (room.players.some((p) => p.id === targetId)) {
+    throw new Error('El jugador expulsado aún se encuentra en la sala');
+  }
+  console.log('   ✓ Expulsión de jugador por anfitrión validada correctamente');
+
   // Start Game
-  manager.startGame(fakeSocketHost);
+  const activeHostSocket = fakeSocketPlayer; // Juan is host now
+  manager.startGame(activeHostSocket);
   if (room.status !== 'PLAYING' || !room.currentRound) throw new Error('Fallo al iniciar partida');
   console.log(`   ✓ Ronda iniciada: Letra [${room.currentRound.letter}], Ronda #${room.currentRound.roundNumber}`);
 

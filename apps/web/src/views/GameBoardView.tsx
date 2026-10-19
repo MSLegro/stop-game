@@ -89,8 +89,8 @@ export const GameBoardView: React.FC<GameBoardViewProps> = ({
 
   return (
     <div className="w-full max-w-4xl mx-auto space-y-6 pb-20">
-      {/* Barra de Estado Superior: Letra, Temporizador y Comodín */}
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-white/90 backdrop-blur-sm p-4 rounded-3xl border-3 border-ink-900 shadow-sketch">
+      {/* Barra de Estado Superior: Fija al hacer scroll (Sticky) */}
+      <div className="sticky top-2 sm:top-4 z-30 flex flex-wrap items-center justify-between gap-4 bg-white/95 backdrop-blur-md p-4 rounded-3xl border-3 border-ink-900 shadow-sketch transition-all">
         {/* Sello de Goma: Letra Sorteada */}
         <motion.div
           initial={{ scale: 2, rotate: -25, opacity: 0 }}
@@ -157,8 +157,8 @@ export const GameBoardView: React.FC<GameBoardViewProps> = ({
         animate={{ opacity: 1, y: 0 }}
         className="notebook-sheet rounded-3xl p-6 sm:p-8 border-3 border-ink-900 relative"
       >
-        {/* Washi Tape lateral decorativa */}
-        <div className="absolute top-4 -right-4 w-28 h-7 washi-tape-pink rotate-12 flex items-center justify-center font-hand text-ink-900 font-bold text-xs select-none">
+        {/* Washi Tape decorativa superior pegando la hoja */}
+        <div className="absolute -top-3.5 right-6 sm:right-10 w-28 h-7 washi-tape-pink rotate-[-2deg] flex items-center justify-center font-hand text-ink-900 font-bold text-xs tracking-wide select-none z-10 shadow-sketch-sm">
           NO BORRAR
         </div>
 

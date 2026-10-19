@@ -2,6 +2,15 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import type { RoomState, RoomSettings } from '@stop/shared';
 import { soundManager } from '../utils/audio.js';
 
+const SESSION_STORAGE_KEY = 'stop_game_session';
+
+interface SavedSession {
+  code: string;
+  name: string;
+  avatarId: string;
+  playerId?: string;
+}
+
 export function useGameSocket() {
   const [roomState, setRoomState] = useState<RoomState | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -37,6 +46,25 @@ export function useGameSocket() {
           const queued = pendingQueueRef.current.shift();
           if (queued) ws.send(queued);
         }
+
+        // Auto-reconnect if session exists in sessionStorage (e.g. on page reload F5)
+        try {
+          const raw = sessionStorage.getItem(SESSION_STORAGE_KEY);
+          if (raw) {
+            const saved: SavedSession = JSON.parse(raw);
+            if (saved.code && saved.name) {
+              ws.send(JSON.stringify({
+                event: 'room:join',
+                payload: {
+                  code: saved.code,
+                  name: saved.name,
+                  avatarId: saved.avatarId || 'garabato-feliz',
+                  playerId: saved.playerId,
+                },
+              }));
+            }
+          }
+        } catch {}
       };
 
       ws.onmessage = (event) => {
@@ -46,6 +74,14 @@ export function useGameSocket() {
             case 'player:init':
               if (data.payload?.playerId) {
                 setCurrentPlayerId(data.payload.playerId);
+                try {
+                  const raw = sessionStorage.getItem(SESSION_STORAGE_KEY);
+                  const prev = raw ? JSON.parse(raw) : {};
+                  sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
+                    ...prev,
+                    playerId: data.payload.playerId,
+                  }));
+                } catch {}
               }
               break;
 
@@ -55,6 +91,15 @@ export function useGameSocket() {
                 setCurrentPlayerId(data.payload.hostId);
                 isCreatingHostRef.current = false;
               }
+              try {
+                const raw = sessionStorage.getItem(SESSION_STORAGE_KEY);
+                const prev = raw ? JSON.parse(raw) : {};
+                sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
+                  ...prev,
+                  code: data.payload.code,
+                }));
+              } catch {}
+
               // Solo mostrar STOP si la sala sigue en PLAYING
               if (data.payload?.status === 'PLAYING' && data.payload?.currentRound?.stoppedBy) {
                 setStoppedByPlayer(data.payload.currentRound.stoppedBy);
@@ -63,9 +108,27 @@ export function useGameSocket() {
               }
               break;
 
+            case 'room:kicked':
+              try {
+                sessionStorage.removeItem(SESSION_STORAGE_KEY);
+              } catch {}
+              pendingQueueRef.current = [];
+              setRoomState(null);
+              setCurrentPlayerId('');
+              setStoppedByPlayer(null);
+              setErrorMessage(data.payload?.message || 'Has sido expulsado de la sala por el anfitrión.');
+              soundManager.playBuzzer();
+              break;
+
             case 'room:error':
               setErrorMessage(data.payload.message);
               soundManager.playBuzzer();
+              if (data.payload.message?.includes('No se encontró')) {
+                try {
+                  sessionStorage.removeItem(SESSION_STORAGE_KEY);
+                } catch {}
+                setRoomState(null);
+              }
               break;
 
             case 'round:stop_triggered':
@@ -92,14 +155,18 @@ export function useGameSocket() {
       };
 
       ws.onclose = () => {
+        if (socketRef.current !== ws) return;
         setIsConnected(false);
-        // Intentar reconectar después de 2 segundos
+        if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
         reconnectTimeoutRef.current = setTimeout(() => {
-          connect();
+          if (socketRef.current === ws || !socketRef.current) {
+            connect();
+          }
         }, 2000);
       };
 
       ws.onerror = () => {
+        if (socketRef.current !== ws) return;
         setIsConnected(false);
       };
     } catch (err) {
@@ -110,8 +177,19 @@ export function useGameSocket() {
   useEffect(() => {
     connect();
     return () => {
-      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
-      if (socketRef.current) socketRef.current.close();
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
+      if (socketRef.current) {
+        const activeWs = socketRef.current;
+        socketRef.current = null;
+        activeWs.onopen = null;
+        activeWs.onmessage = null;
+        activeWs.onerror = null;
+        activeWs.onclose = null;
+        activeWs.close();
+      }
     };
   }, [connect]);
 
@@ -126,12 +204,32 @@ export function useGameSocket() {
 
   const createRoom = useCallback((name: string, avatarId: string) => {
     isCreatingHostRef.current = true;
+    try {
+      sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({ name, avatarId, code: '' }));
+    } catch {}
     sendEvent('room:create', { name, avatarId });
   }, [sendEvent]);
 
   const joinRoom = useCallback((code: string, name: string, avatarId: string) => {
     isCreatingHostRef.current = false;
+    try {
+      sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({ code, name, avatarId }));
+    } catch {}
     sendEvent('room:join', { code, name, avatarId });
+  }, [sendEvent]);
+
+  const leaveRoom = useCallback(() => {
+    try {
+      sessionStorage.removeItem(SESSION_STORAGE_KEY);
+    } catch {}
+    setRoomState(null);
+    setCurrentPlayerId('');
+    setStoppedByPlayer(null);
+    sendEvent('room:leave');
+  }, [sendEvent]);
+
+  const kickPlayer = useCallback((targetPlayerId: string) => {
+    sendEvent('room:kick_player', { targetPlayerId });
   }, [sendEvent]);
 
   const updateSettings = useCallback((settings: Partial<RoomSettings>) => {
@@ -176,6 +274,8 @@ export function useGameSocket() {
     clearError: () => setErrorMessage(null),
     createRoom,
     joinRoom,
+    leaveRoom,
+    kickPlayer,
     updateSettings,
     startGame,
     submitAnswers,

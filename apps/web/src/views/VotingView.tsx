@@ -16,7 +16,7 @@ export const VotingView: React.FC<VotingViewProps> = ({
   currentPlayerId,
   onCastVote,
 }) => {
-  const [timeLeft, setTimeLeft] = useState<number>(15);
+  const [timeLeft, setTimeLeft] = useState<number>(30);
 
   useEffect(() => {
     if (!roomState.votingEndsAt) return;

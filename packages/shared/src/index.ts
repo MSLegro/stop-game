@@ -199,9 +199,13 @@ export function validateWordLocal(
 // EVENTOS DE WEBSOCKET (CONTRATOS)
 // ==========================================
 
+export const MAX_PLAYERS_PER_ROOM = 8;
+
 export type ClientToServerEvents = {
   'room:create': (data: { name: string; avatarId: string }) => void;
-  'room:join': (data: { code: string; name: string; avatarId: string }) => void;
+  'room:join': (data: { code: string; name: string; avatarId: string; playerId?: string }) => void;
+  'room:leave': () => void;
+  'room:kick_player': (data: { targetPlayerId: string }) => void;
   'room:update_settings': (data: { settings: Partial<RoomSettings> }) => void;
   'game:start': () => void;
   'round:submit_answers': (data: { answers: Record<string, string> }) => void;
@@ -215,6 +219,7 @@ export type ClientToServerEvents = {
 export type ServerToClientEvents = {
   'room:state': (state: RoomState) => void;
   'room:error': (data: { message: string }) => void;
+  'room:kicked': (data: { message: string }) => void;
   'round:stop_triggered': (data: { stoppedBy: { id: string; name: string } }) => void;
   'sound:play': (data: { sound: 'tick' | 'stop' | 'paper' | 'cheer' | 'buzzer' | 'pop' }) => void;
 };

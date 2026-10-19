@@ -13,7 +13,7 @@
   }
 }
 
-/* Cuaderno escolar con cuadrícula y margen rojo */
+/* Cuaderno escolar rayado con renglones azules y margen rojo (Escritura) */
 .notebook-sheet {
   background-color: #fffdf9;
   background-image: 
@@ -24,6 +24,29 @@
   box-shadow: 
     0 1px 3px rgba(0, 0, 0, 0.05),
     4px 6px 0px #18181b;
+}
+
+/* Cuaderno escolar cuadriculado (Matemáticas, Reglas, Estadísticas y Puntos) */
+.notebook-grid {
+  background-color: #fffdf9;
+  background-image: 
+    linear-gradient(to right, rgba(59, 130, 246, 0.12) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(59, 130, 246, 0.12) 1px, transparent 1px);
+  background-size: 20px 20px;
+  background-position: 0 0;
+  box-shadow: 
+    0 1px 3px rgba(0, 0, 0, 0.05),
+    4px 6px 0px #18181b;
+}
+
+/* Cuadrícula sutil para tarjetas secundarias o contenedores pequeños */
+.notebook-grid-subtle {
+  background-color: #fffdfa;
+  background-image: 
+    linear-gradient(to right, rgba(59, 130, 246, 0.09) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(59, 130, 246, 0.09) 1px, transparent 1px);
+  background-size: 16px 16px;
+  background-position: 0 0;
 }
 
 /* Washi tape decorativa (cinta adhesiva con textura) */

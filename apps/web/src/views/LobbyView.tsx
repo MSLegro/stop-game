@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { DOODLE_AVATARS } from '@stop/shared';
 import { DoodleAvatar } from '../components/DoodleAvatar.js';
 import { soundManager } from '../utils/audio.js';
@@ -148,31 +148,36 @@ export const LobbyView: React.FC<LobbyViewProps> = ({ onCreateRoom, onJoinRoom }
           </div>
 
           {/* Código PIN si es Unirse */}
-          {tab === 'join' && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-            >
-              <label className="block font-hand font-bold text-lg text-ink-900 mb-1">
-                3. Código PIN de 4 caracteres:
-              </label>
-              <input
-                type="text"
-                required
-                maxLength={4}
-                placeholder="ej. KZ79"
-                value={roomCode}
-                onChange={(e) => setRoomCode(e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 4).toUpperCase())}
-                className="w-full px-4 py-3 rounded-2xl border-3 border-ink-900 bg-white font-hand text-2xl tracking-widest text-center uppercase text-red-600 font-extrabold shadow-sketch-sm focus:outline-none focus:ring-4 focus:ring-yellow-300 transition-all placeholder:text-ink-500 placeholder:tracking-normal"
-              />
-              {tab === 'join' && !name.trim() && (
-                <span className="block font-hand text-sm text-red-600 font-bold mt-1 text-center">
-                  👆 Recuerda escribir tu apodo en el paso 2 arriba
-                </span>
-              )}
-            </motion.div>
-          )}
+          <AnimatePresence initial={false}>
+            {tab === 'join' && (
+              <motion.div
+                key="join-pin-field"
+                initial={{ opacity: 0, height: 0, y: -6 }}
+                animate={{ opacity: 1, height: 'auto', y: 0 }}
+                exit={{ opacity: 0, height: 0, y: -6 }}
+                transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+                className="overflow-hidden p-1 -m-1"
+              >
+                <label className="block font-hand font-bold text-lg text-ink-900 mb-1">
+                  3. Código PIN de 4 caracteres:
+                </label>
+                <input
+                  type="text"
+                  required
+                  maxLength={4}
+                  placeholder="ej. KZ79"
+                  value={roomCode}
+                  onChange={(e) => setRoomCode(e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 4).toUpperCase())}
+                  className="w-full px-4 py-3 rounded-2xl border-3 border-ink-900 bg-white font-hand text-2xl tracking-widest text-center uppercase text-red-600 font-extrabold shadow-sketch-sm focus:outline-none focus:ring-4 focus:ring-yellow-300 transition-all placeholder:text-ink-500 placeholder:tracking-normal"
+                />
+                {!name.trim() && (
+                  <span className="block font-hand text-sm text-red-600 font-bold mt-1 text-center">
+                    👆 Recuerda escribir tu apodo en el paso 2 arriba
+                  </span>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Botón de Acción Principal */}
           <motion.button
